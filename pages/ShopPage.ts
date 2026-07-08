@@ -2,11 +2,12 @@ import { expect } from '@playwright/test';
 import { BasePage } from './BasePage';
 
 export class ShopPage extends BasePage {
-  private readonly applyNewPlanBtn = this.page.getByRole('button', { name: /apply for a new plan/i });
+  private readonly applyNewPlanBtn = this.page.getByRole('button', { name: /get a new mobile number/i });
   private readonly planOnlyCard = this.page.locator('.card-content.selected-card');
   private readonly planCards = this.page.locator('button.brd-card-btn');
   private readonly selectedBtn = this.page.locator('button.brd-selected-btn');
   private readonly acceptCookiesBtn = this.page.getByRole('button', { name: /accept/i });
+  private readonly viewDetailsBtns = this.page.locator('button:has-text("View Details")');
 
   async navigateToShop(): Promise<void> {
     await this.goto('https://shop.globe.com.ph/');
@@ -51,5 +52,71 @@ export class ShopPage extends BasePage {
 
   async getLocalStorageState(): Promise<any> {
     return this.getLocalStorage('state');
+  }
+
+  async clickViewDetails(planIndex = 0): Promise<void> {
+    const btn = this.viewDetailsBtns.nth(planIndex);
+    await btn.scrollIntoViewIfNeeded();
+    await expect(btn).toBeVisible();
+    await btn.click();
+    await this.page.waitForTimeout(3000);
+  }
+
+  async getModalText(): Promise<string> {
+    return this.page.evaluate(() => {
+      const modals = document.querySelectorAll('.modal');
+      for (const modal of modals) {
+        if (window.getComputedStyle(modal).display !== 'none') {
+          const content = modal.querySelector('.modal-content');
+          if (content) return content.textContent?.trim() || '';
+        }
+      }
+      return '';
+    });
+  }
+
+  async verifyPlanNameInModal(name: string): Promise<void> {
+    const text = await this.getModalText();
+    expect(text).toContain(name);
+  }
+
+  async verifyPlanPriceInModal(price: string): Promise<void> {
+    const text = await this.getModalText();
+    expect(text).toContain(price);
+  }
+
+  async verifyPlanDataInModal(data: string): Promise<void> {
+    const text = await this.getModalText();
+    expect(text).toContain(data);
+  }
+
+  async verifyInclusionsInModal(inclusions: string[]): Promise<void> {
+    const text = await this.getModalText();
+    for (const inclusion of inclusions) {
+      expect(text).toContain(inclusion);
+    }
+  }
+
+  async verifyPromoBadgeInModal(badge: string): Promise<void> {
+    const text = await this.getModalText();
+    expect(text).toContain(badge);
+  }
+
+  async closeModal(): Promise<void> {
+    await this.page.evaluate(() => {
+      const modals = document.querySelectorAll('.modal');
+      for (const modal of modals) {
+        if (window.getComputedStyle(modal).display !== 'none') {
+          const closeBtn = modal.querySelector('.btn-secondary') as HTMLButtonElement;
+          if (closeBtn) closeBtn.click();
+          break;
+        }
+      }
+    });
+    await this.page.waitForTimeout(1000);
+  }
+
+  async takeScreenshot(name: string): Promise<void> {
+    await this.page.screenshot({ path: `test-results/${name}.png`, fullPage: false });
   }
 }
