@@ -13,7 +13,7 @@ export const plans: PlanData[] = [
     price: '599',
     data: '10GB',
     dataDescription: '10GB All-access data',
-    promoBadge: 'FREE UNLI 5G (6 months)',
+    promoBadge: 'FREE UNLI 5G',
     inclusions: [
       'Unli Allnet Calls & Text + Landline',
       'Unlimited 5G access for 6 months',
@@ -24,7 +24,7 @@ export const plans: PlanData[] = [
     price: '799',
     data: '15GB',
     dataDescription: '15GB Swappable All-access data',
-    promoBadge: 'FREE UNLI 5G (12 months)',
+    promoBadge: 'FREE UNLI 5G',
     inclusions: [
       'Unli Allnet Calls & Text + Landline',
       'Unlimited 5G access for 12 months',
@@ -35,9 +35,9 @@ export const plans: PlanData[] = [
     price: '999',
     data: '20GB',
     dataDescription: '20GB Swappable All-access data',
-    promoBadge: 'FREE UNLI 5G (12 months)',
+    promoBadge: 'FREE UNLI 5G',
     inclusions: [
-      'Unli All-net call and text + Unli Landline Calls',
+      'Unli Allnet Calls & Text + Landline',
       'Unlimited 5G access for 12 months',
     ],
   },

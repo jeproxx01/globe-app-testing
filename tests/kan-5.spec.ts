@@ -18,8 +18,7 @@ test.describe('KAN-5: Validate Plan Details and Pricing', () => {
       });
 
       await test.step(`Open plan details for ${plan.price} plan`, async () => {
-        const planIndex = plans.indexOf(plan);
-        await shopPage.clickViewDetails(planIndex);
+        await shopPage.clickViewDetailsByPrice(plan.price);
       });
 
       await test.step('Verify plan name is displayed', async () => {

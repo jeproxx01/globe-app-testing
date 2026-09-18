@@ -5,10 +5,19 @@ dotenv.config();
 
 export default defineConfig({
   testDir: './tests',
+  // Navigation includes Cloudflare challenge waits + retries, so keep generous headroom.
+  timeout: 120000,
+  expect: {
+    // expect() defaults to 5s, which is too tight for this Cloudflare-protected SPA.
+    timeout: 10000,
+  },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // IMPORTANT: keep this at 1. shop.globe.com.ph sits behind Cloudflare bot
+  // protection; running several browser sessions concurrently triggers 403s on
+  // /assets/* and /api/*, which leaves the plan list only partially rendered.
+  workers: 1,
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['json', { outputFile: 'test-results/results.json' }]
@@ -25,6 +34,11 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
+        // Use the full Chromium build ("new" headless) instead of the default
+        // headless shell. It is far less detectable and eliminates the Cloudflare
+        // 403s on /assets/* and /api/* that the headless shell triggers.
+        // Requires: npx playwright install chromium
+        channel: 'chromium',
         // Cloudflare bypass settings
         launchOptions: {
           args: [
@@ -35,7 +49,9 @@ export default defineConfig({
           ],
         },
         contextOptions: {
-          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          // userAgent is intentionally NOT overridden here: devices['Desktop Chrome']
+          // already sends a UA matching the installed browser version. A stale UA
+          // (e.g. Chrome/120 against Chrome/149) triggers Cloudflare 403s.
           viewport: { width: 1920, height: 1080 },
           locale: 'en-PH',
           timezoneId: 'Asia/Manila',

@@ -1,4 +1,5 @@
 import { Page, expect } from '@playwright/test';
+import { navigateWithCF } from '../utils/cloudflare-helpers';
 
 export class BasePage {
   readonly page: Page;
@@ -8,7 +9,9 @@ export class BasePage {
   }
 
   async goto(url: string): Promise<void> {
-    await this.page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    // Cloudflare-aware: waits out a "Just a moment..." interstitial and retries,
+    // instead of letting the test fail later on a title/selector assertion.
+    await navigateWithCF(this.page, url);
     await this.page.waitForTimeout(10000);
   }
 

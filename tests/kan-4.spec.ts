@@ -25,11 +25,11 @@ test.describe('KAN-4: Apply for a new Globe plan (Plan Only)', () => {
     });
 
     await test.step('Select the 599 plan', async () => {
-      await shopPage.selectFirstPlan();
+      await shopPage.selectPlanByPrice('599');
     });
 
     await test.step('Verify plan is selected', async () => {
-      await shopPage.verifyPlanSelected();
+      await shopPage.verifyPlanSelectedByPrice('599');
     });
 
     await test.step('Verify localStorage state contains plan and customer type', async () => {

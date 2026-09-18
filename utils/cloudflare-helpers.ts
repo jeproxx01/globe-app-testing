@@ -6,19 +6,65 @@ import { Page, BrowserContext } from '@playwright/test';
  */
 
 /**
+ * Titles Cloudflare serves on its interstitial pages instead of the real site.
+ * Matched case-insensitively.
+ */
+const CHALLENGE_TITLES = [
+  'just a moment',
+  'checking your browser',
+  'attention required',
+  'verify you are human',
+];
+
+/**
+ * DOM markers Cloudflare injects while a challenge is being solved.
+ */
+const CHALLENGE_SELECTORS = [
+  '#challenge-running',
+  '#challenge-form',
+  '#challenge-stage',
+  '.cf-browser-verification',
+  '#cf-please-wait',
+];
+
+/**
+ * True when the page is showing a Cloudflare interstitial rather than the app.
+ * The title is checked first because it is reliable even mid-navigation, then
+ * Cloudflare's DOM markers as a backstop.
+ */
+export async function isCloudflareChallenge(page: Page): Promise<boolean> {
+  const title = (await page.title().catch(() => '')).toLowerCase();
+  if (CHALLENGE_TITLES.some((t) => title.includes(t))) return true;
+
+  return page
+    .evaluate(
+      (selectors) => selectors.some((s) => document.querySelector(s) !== null),
+      CHALLENGE_SELECTORS,
+    )
+    .catch(() => false);
+}
+
+/**
+ * Poll until a Cloudflare challenge clears.
+ * Returns true if the real site is showing, false if still challenged at timeout.
+ */
+export async function waitForChallengeToClear(page: Page, timeout = 15000): Promise<boolean> {
+  const deadline = Date.now() + timeout;
+
+  while (Date.now() < deadline) {
+    if (!(await isCloudflareChallenge(page))) return true;
+    await page.waitForTimeout(1000);
+  }
+
+  return !(await isCloudflareChallenge(page));
+}
+
+/**
  * Wait for Cloudflare challenge to complete.
- * Cloudflare may show a "Checking your browser" interstitial.
+ * Kept for backwards compatibility — prefer waitForChallengeToClear().
  */
 export async function waitForCloudflare(page: Page, timeout = 30000): Promise<void> {
-  try {
-    // Wait for potential Cloudflare challenge to resolve
-    await page.waitForFunction(() => {
-      const challenge = document.querySelector('#challenge-running, #challenge-form, .cf-browser-verification');
-      return !challenge;
-    }, { timeout });
-  } catch {
-    // Challenge might not appear, continue
-  }
+  await waitForChallengeToClear(page, timeout);
 }
 
 /**
@@ -81,22 +127,32 @@ export async function createStealthContext(browser: any): Promise<BrowserContext
 
 /**
  * Navigate with Cloudflare awareness.
- * Retries navigation if a challenge is detected.
+ *
+ * Managed challenges ("Just a moment...") usually solve themselves in a few
+ * seconds once the page has loaded, so the first move is to WAIT for the
+ * interstitial to clear rather than immediately hammering the site with another
+ * request. Only if it does not clear do we re-navigate, with a jittered backoff.
+ *
+ * Throws a descriptive error (instead of silently returning) when the challenge
+ * never clears, so the failure is obvious in the report rather than surfacing as
+ * a confusing "expected title ... received Just a moment" assertion later.
  */
 export async function navigateWithCF(page: Page, url: string, maxRetries = 3): Promise<void> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await waitForCloudflare(page);
 
-    // Check if we're past Cloudflare
-    const title = await page.title();
-    if (!title.includes('Just a moment') && !title.includes('Checking')) {
+    if (await waitForChallengeToClear(page, 15000)) {
       return;
     }
 
-    // Wait a bit before retry
     if (attempt < maxRetries) {
       await page.waitForTimeout(2000 + Math.random() * 3000);
     }
   }
+
+  throw new Error(
+    `Cloudflare challenge ("Just a moment...") did not clear after ${maxRetries} attempts at ${url}. ` +
+      `The site is rate-limiting this machine — wait a minute before re-running, ` +
+      `and make sure workers is set to 1 in playwright.config.ts.`,
+  );
 }
